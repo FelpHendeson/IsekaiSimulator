@@ -5,8 +5,10 @@ import {
   Clock3,
   Coins,
   Dumbbell,
+  FolderOpen,
   Heart,
   Moon,
+  Save,
   ShieldAlert,
   Sparkles,
   Zap,
@@ -24,6 +26,7 @@ export function GameShell() {
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [message, setMessage] = useState("Voce desperta em Elaria enquanto o mundo segue seu proprio relogio.");
   const [now, setNow] = useState(() => new Date());
+  const [isPersisting, setIsPersisting] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -51,6 +54,58 @@ export function GameShell() {
     }
   }
 
+  async function saveGame() {
+    setIsPersisting(true);
+
+    try {
+      const response = await fetch("/api/saves", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(gameState),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMessage(payload.error ?? "Nao foi possivel salvar a partida.");
+        return;
+      }
+
+      setMessage(`Partida salva em ${new Date(payload.save.updatedAt).toLocaleString("pt-BR")}.`);
+    } catch {
+      setMessage("Nao foi possivel conectar ao servidor de save.");
+    } finally {
+      setIsPersisting(false);
+    }
+  }
+
+  async function loadGame() {
+    setIsPersisting(true);
+
+    try {
+      const response = await fetch(`/api/saves?saveId=${encodeURIComponent(gameState.saveId)}`);
+      const payload = await response.json();
+
+      if (response.status === 404) {
+        setMessage("Nenhum save encontrado para esta campanha.");
+        return;
+      }
+
+      if (!response.ok) {
+        setMessage(payload.error ?? "Nao foi possivel carregar a partida.");
+        return;
+      }
+
+      setGameState(payload.save.gameState);
+      setMessage("Partida carregada do MongoDB Atlas.");
+    } catch {
+      setMessage("Nao foi possivel conectar ao servidor de save.");
+    } finally {
+      setIsPersisting(false);
+    }
+  }
+
   return (
     <main className="min-h-screen px-4 py-5 text-ink sm:px-6 lg:px-8">
       <section className="mx-auto grid w-full max-w-7xl gap-4 lg:grid-cols-[1fr_22rem]">
@@ -60,6 +115,9 @@ export function GameShell() {
             period={gameState.clock.period}
             locationName={currentLocation?.name ?? "Local desconhecido"}
             danger={effectiveDanger}
+            isPersisting={isPersisting}
+            onLoad={loadGame}
+            onSave={saveGame}
           />
 
           <NarrativePanel message={message} />
@@ -102,12 +160,18 @@ export function GameShell() {
 function HeaderPanel({
   clockLabel,
   danger,
+  isPersisting,
   locationName,
+  onLoad,
+  onSave,
   period,
 }: {
   clockLabel: string;
   danger: number;
+  isPersisting: boolean;
   locationName: string;
+  onLoad: () => void;
+  onSave: () => void;
   period: string;
 }) {
   return (
@@ -121,6 +185,24 @@ function HeaderPanel({
           <StatusPill icon={<Clock3 size={16} />} label={clockLabel} />
           <StatusPill label={periodLabel(period)} />
           <StatusPill icon={<ShieldAlert size={16} />} label={`Perigo ${danger}`} tone="danger" />
+          <button
+            className="inline-flex min-h-9 items-center gap-2 rounded border border-ink/15 bg-white/70 px-3 py-2 font-semibold text-ink transition hover:border-ink/35 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isPersisting}
+            onClick={onSave}
+            title="Salvar partida"
+          >
+            <Save size={16} />
+            Salvar
+          </button>
+          <button
+            className="inline-flex min-h-9 items-center gap-2 rounded border border-ink/15 bg-white/70 px-3 py-2 font-semibold text-ink transition hover:border-ink/35 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isPersisting}
+            onClick={onLoad}
+            title="Carregar partida"
+          >
+            <FolderOpen size={16} />
+            Carregar
+          </button>
         </div>
       </div>
     </section>
@@ -370,4 +452,3 @@ function periodLabel(period: string): string {
 
   return labels[period] ?? period;
 }
-
