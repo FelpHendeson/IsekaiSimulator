@@ -7,10 +7,13 @@ import {
   Dumbbell,
   FolderOpen,
   Heart,
+  LogIn,
+  LogOut,
   Moon,
   Save,
   ShieldAlert,
   Sparkles,
+  UserPlus,
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -22,17 +25,46 @@ import { formatClock } from "../../game/time/clock";
 import type { GameState, TrainingSession } from "../../game/types";
 import { getEffectiveDanger } from "../../game/world/danger";
 
+type AuthUser = {
+  id: string;
+  username: string;
+  displayName: string;
+};
+
 export function GameShell() {
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [message, setMessage] = useState("Voce desperta em Elaria enquanto o mundo segue seu proprio relogio.");
   const [now, setNow] = useState(() => new Date());
   const [isPersisting, setIsPersisting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authMessage, setAuthMessage] = useState("Entre para salvar e carregar por conta.");
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const devMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
 
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/auth/me");
+        const payload = await response.json();
+
+        if (response.ok && payload.user) {
+          setCurrentUser(payload.user);
+          setAuthMessage(`Sessao ativa: ${payload.user.displayName}.`);
+        } else if (!response.ok && payload.error) {
+          setAuthMessage(payload.error);
+        }
+      } catch {
+        setAuthMessage("Nao foi possivel consultar a sessao.");
+      }
+    }
+
+    void loadSession();
   }, []);
 
   const currentLocation = gameState.world.locations[gameState.currentLocationId];
@@ -56,6 +88,11 @@ export function GameShell() {
   }
 
   async function saveGame() {
+    if (!currentUser) {
+      setMessage("Faca login para salvar esta campanha em uma conta.");
+      return;
+    }
+
     setIsPersisting(true);
 
     try {
@@ -82,6 +119,11 @@ export function GameShell() {
   }
 
   async function loadGame() {
+    if (!currentUser) {
+      setMessage("Faca login para carregar saves da sua conta.");
+      return;
+    }
+
     setIsPersisting(true);
 
     try {
@@ -118,6 +160,7 @@ export function GameShell() {
             danger={effectiveDanger}
             devMode={devMode}
             isPersisting={isPersisting}
+            canPersist={Boolean(currentUser)}
             onLoad={loadGame}
             onSave={saveGame}
           />
@@ -144,6 +187,48 @@ export function GameShell() {
         </div>
 
         <aside className="space-y-4">
+          <AuthPanel
+            authMessage={authMessage}
+            currentUser={currentUser}
+            isLoading={isAuthLoading}
+            onAuth={async (mode, username, password) => {
+              setIsAuthLoading(true);
+
+              try {
+                const response = await fetch(`/api/auth/${mode}`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ username, password }),
+                });
+                const payload = await response.json();
+
+                if (!response.ok) {
+                  setAuthMessage(payload.error ?? "Nao foi possivel autenticar.");
+                  return;
+                }
+
+                setCurrentUser(payload.user);
+                setAuthMessage(`Conta ativa: ${payload.user.displayName}.`);
+              } catch {
+                setAuthMessage("Nao foi possivel conectar ao servidor de auth.");
+              } finally {
+                setIsAuthLoading(false);
+              }
+            }}
+            onLogout={async () => {
+              setIsAuthLoading(true);
+
+              try {
+                await fetch("/api/auth/logout", { method: "POST" });
+              } finally {
+                setCurrentUser(null);
+                setAuthMessage("Sessao encerrada.");
+                setIsAuthLoading(false);
+              }
+            }}
+          />
           <CharacterPanel gameState={gameState} />
           <WorldPanel gameState={gameState} danger={effectiveDanger} />
           <RestPanel
@@ -161,6 +246,7 @@ export function GameShell() {
 }
 
 function HeaderPanel({
+  canPersist,
   clockLabel,
   danger,
   devMode,
@@ -170,6 +256,7 @@ function HeaderPanel({
   onSave,
   period,
 }: {
+  canPersist: boolean;
   clockLabel: string;
   danger: number;
   devMode: boolean;
@@ -193,7 +280,7 @@ function HeaderPanel({
           {devMode ? <StatusPill label="DEV mode" tone="dev" /> : null}
           <button
             className="inline-flex min-h-9 items-center gap-2 rounded border border-ink/15 bg-white/70 px-3 py-2 font-semibold text-ink transition hover:border-ink/35 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isPersisting}
+            disabled={isPersisting || !canPersist}
             onClick={onSave}
             title="Salvar partida"
           >
@@ -202,7 +289,7 @@ function HeaderPanel({
           </button>
           <button
             className="inline-flex min-h-9 items-center gap-2 rounded border border-ink/15 bg-white/70 px-3 py-2 font-semibold text-ink transition hover:border-ink/35 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isPersisting}
+            disabled={isPersisting || !canPersist}
             onClick={onLoad}
             title="Carregar partida"
           >
@@ -211,6 +298,123 @@ function HeaderPanel({
           </button>
         </div>
       </div>
+    </section>
+  );
+}
+
+function AuthPanel({
+  authMessage,
+  currentUser,
+  isLoading,
+  onAuth,
+  onLogout,
+}: {
+  authMessage: string;
+  currentUser: AuthUser | null;
+  isLoading: boolean;
+  onAuth: (mode: "login" | "register", username: string, password: string) => Promise<void>;
+  onLogout: () => Promise<void>;
+}) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function submitAuth(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onAuth(mode, username, password);
+    setPassword("");
+  }
+
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Conta</h2>
+          <p className="mt-1 text-sm text-ink/65">Saves ficam separados por usuario.</p>
+        </div>
+        {currentUser ? <LogOut className="text-ember" size={22} /> : <LogIn className="text-ember" size={22} />}
+      </div>
+
+      {currentUser ? (
+        <div className="mt-4">
+          <div className="rounded bg-moss/10 p-4 text-sm">
+            <p className="font-semibold text-ink">{currentUser.displayName}</p>
+            <p className="mt-1 text-ink/60">@{currentUser.username}</p>
+          </div>
+          <button
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded border border-ink/20 px-4 py-3 text-sm font-semibold text-ink transition hover:border-ink/45 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isLoading}
+            onClick={onLogout}
+          >
+            <LogOut size={16} />
+            Sair
+          </button>
+        </div>
+      ) : (
+        <form className="mt-4 space-y-3" onSubmit={submitAuth}>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              className={clsx(
+                "rounded border px-3 py-2 text-sm font-semibold transition",
+                mode === "login"
+                  ? "border-ink bg-ink text-parchment"
+                  : "border-ink/15 bg-white/50 text-ink",
+              )}
+              onClick={() => setMode("login")}
+              type="button"
+            >
+              Entrar
+            </button>
+            <button
+              className={clsx(
+                "rounded border px-3 py-2 text-sm font-semibold transition",
+                mode === "register"
+                  ? "border-ink bg-ink text-parchment"
+                  : "border-ink/15 bg-white/50 text-ink",
+              )}
+              onClick={() => setMode("register")}
+              type="button"
+            >
+              Criar
+            </button>
+          </div>
+          <label className="block text-sm font-semibold text-ink/75">
+            Usuario
+            <input
+              className="mt-1 w-full rounded border border-ink/15 bg-white px-3 py-2 text-ink outline-none transition focus:border-ember"
+              maxLength={32}
+              minLength={3}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="aventureiro"
+              required
+              value={username}
+            />
+          </label>
+          <label className="block text-sm font-semibold text-ink/75">
+            Senha
+            <input
+              className="mt-1 w-full rounded border border-ink/15 bg-white px-3 py-2 text-ink outline-none transition focus:border-ember"
+              maxLength={128}
+              minLength={6}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="minimo 6 caracteres"
+              required
+              type="password"
+              value={password}
+            />
+          </label>
+          <button
+            className="flex w-full items-center justify-center gap-2 rounded bg-ink px-4 py-3 text-sm font-semibold text-parchment transition hover:bg-night disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isLoading}
+            type="submit"
+          >
+            {mode === "register" ? <UserPlus size={16} /> : <LogIn size={16} />}
+            {mode === "register" ? "Criar conta" : "Entrar"}
+          </button>
+        </form>
+      )}
+
+      <p className="mt-4 text-sm leading-6 text-ink/65">{authMessage}</p>
     </section>
   );
 }
