@@ -13,6 +13,44 @@ O projeto deve separar bem duas coisas:
 
 Essa separacao permite criar muito conteudo sem reescrever a base do jogo.
 
+## Direcao de design: browser RPG no estilo Gladiatus
+
+`isekaiSimulator` deve beber da mesma fonte de jogos browser persistentes como `Gladiatus`, mas sem copiar tema, nomes, textos, imagens ou regras proprietarias. A referencia aqui e o **loop de jogo**: um personagem principal evolui por acoes curtas, timers, combate, arena, expedicoes, trabalho, equipamentos e progresso incremental ao longo de dias.
+
+O jogo deve misturar duas camadas:
+
+- **Camada livre de RPG isekai:** mapa em arvore, escolhas narrativas, NPCs, faccoes, missoes e consequencias.
+- **Camada browser RPG persistente:** menus claros, acoes com custo/tempo, cooldowns, recompensas numericas, equipamento, treino, arena e atividades repetiveis.
+
+Pilares inspirados nesse tipo de jogo:
+
+- **Personagem unico forte:** o jogador investe tempo no mesmo personagem, seu historico, atributos, equipamentos e reputacao.
+- **Cidade como hub:** guilda, mercado, ferreiro, treino, arena, taverna, trabalho e NPCs ficam em localidades acessiveis pelo mapa.
+- **Expedicoes:** acoes curtas em regioes perigosas para encontrar inimigos, itens, ouro, eventos e pistas.
+- **Masmorras:** desafios mais longos, com inimigos em sequencia e chefes.
+- **Arena:** combate ranqueado contra outros personagens ou simulacoes de personagens.
+- **Trabalho offline:** atividade segura que consome tempo real e gera ouro, comida, materiais ou reputacao.
+- **Treino por tempo:** atributos melhoram por sessoes com custo de stamina, ouro, instrutor ou local apropriado.
+- **Equipamentos e loot:** armas, armaduras, acessorios e consumiveis devem ser parte central do crescimento.
+- **Mercado e economia:** compra, venda, leilao ou encomenda de itens, com precos afetados por local, reputacao e evento.
+- **Rotina de login curta:** em poucos minutos o jogador consegue coletar resultado, iniciar treino, aceitar missao, fazer combate e salvar.
+
+O diferencial de `isekaiSimulator` em relacao a um browser RPG classico:
+
+- O mundo nao e apenas uma lista de menus; ele e uma arvore navegavel: planeta, continente, pais, estado, cidade e localidade.
+- NPCs, missoes, perigo e lojas reagem ao local e horario.
+- A narrativa de isekai justifica sistemas como status, treino acelerado, titulos, reencarnacao e memorias do mundo anterior.
+- Escolhas podem alterar rotas, reputacao, faccoes e disponibilidade de conteudo.
+
+Primeira versao desse direcionamento:
+
+1. Criar hub de cidade com mapa navegavel.
+2. Criar missoes iniciais livres por localidade.
+3. Criar expedicoes simples no bosque.
+4. Criar itens/equipamentos basicos.
+5. Criar trabalho offline como alternativa segura ao combate.
+6. Criar arena inicial contra oponentes gerados pelo sistema.
+
 ## Stack proposta
 
 A stack sugerida para a primeira versao:
