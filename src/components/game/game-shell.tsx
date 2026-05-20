@@ -1,0 +1,373 @@
+"use client";
+
+import clsx from "clsx";
+import {
+  Clock3,
+  Coins,
+  Dumbbell,
+  Heart,
+  Moon,
+  ShieldAlert,
+  Sparkles,
+  Zap,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { trainingDefinitions } from "../../content/training/definitions";
+import { applyGameAction } from "../../game/core/apply-action";
+import { GameRuleError } from "../../game/core/errors";
+import { createInitialGameState } from "../../game/core/initial-state";
+import { formatClock } from "../../game/time/clock";
+import type { GameState, TrainingSession } from "../../game/types";
+import { getEffectiveDanger } from "../../game/world/danger";
+
+export function GameShell() {
+  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
+  const [message, setMessage] = useState("Voce desperta em Elaria enquanto o mundo segue seu proprio relogio.");
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const currentLocation = gameState.world.locations[gameState.currentLocationId];
+  const effectiveDanger = currentLocation
+    ? getEffectiveDanger(currentLocation, gameState.clock)
+    : 0;
+  const activeTraining = gameState.activeTrainingSessions[0];
+
+  function runAction(action: Parameters<typeof applyGameAction>[1], successMessage: string) {
+    try {
+      setGameState((current) => applyGameAction(current, action, { now }));
+      setMessage(successMessage);
+    } catch (error) {
+      if (error instanceof GameRuleError) {
+        setMessage(error.message);
+        return;
+      }
+
+      setMessage("Algo inesperado aconteceu ao processar a acao.");
+    }
+  }
+
+  return (
+    <main className="min-h-screen px-4 py-5 text-ink sm:px-6 lg:px-8">
+      <section className="mx-auto grid w-full max-w-7xl gap-4 lg:grid-cols-[1fr_22rem]">
+        <div className="space-y-4">
+          <HeaderPanel
+            clockLabel={formatClock(gameState.clock)}
+            period={gameState.clock.period}
+            locationName={currentLocation?.name ?? "Local desconhecido"}
+            danger={effectiveDanger}
+          />
+
+          <NarrativePanel message={message} />
+
+          <TrainingPanel
+            activeTraining={activeTraining}
+            now={now}
+            onClaim={(sessionId) =>
+              runAction(
+                { type: "CLAIM_TRAINING", trainingSessionId: sessionId },
+                "Treino concluido. O corpo esta mais forte, mas o cansaco cobrou seu preco.",
+              )
+            }
+            onStart={(trainingId) =>
+              runAction(
+                { type: "START_TRAINING", trainingId },
+                "Treino iniciado. O personagem ficara ocupado ate o timer real terminar.",
+              )
+            }
+          />
+        </div>
+
+        <aside className="space-y-4">
+          <CharacterPanel gameState={gameState} />
+          <WorldPanel gameState={gameState} danger={effectiveDanger} />
+          <RestPanel
+            onSleep={() =>
+              runAction(
+                { type: "SLEEP", hours: 8 },
+                "Voce dorme por 8 horas. A stamina volta, a fadiga cai e o mundo continua avancando.",
+              )
+            }
+          />
+        </aside>
+      </section>
+    </main>
+  );
+}
+
+function HeaderPanel({
+  clockLabel,
+  danger,
+  locationName,
+  period,
+}: {
+  clockLabel: string;
+  danger: number;
+  locationName: string;
+  period: string;
+}) {
+  return (
+    <section className="rounded border border-ink/15 bg-parchment/90 p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">isekaiSimulator</h1>
+          <p className="mt-1 text-sm text-ink/65">{locationName}</p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <StatusPill icon={<Clock3 size={16} />} label={clockLabel} />
+          <StatusPill label={periodLabel(period)} />
+          <StatusPill icon={<ShieldAlert size={16} />} label={`Perigo ${danger}`} tone="danger" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NarrativePanel({ message }: { message: string }) {
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <p className="text-sm font-semibold uppercase tracking-wide text-ember">Cena atual</p>
+      <p className="mt-4 text-lg leading-8 text-ink/80">{message}</p>
+      <div className="mt-5 rounded bg-night px-4 py-3 text-sm leading-6 text-parchment">
+        Uma vila parece segura durante o dia, mas o mesmo caminho pode virar uma
+        armadilha quando anoitece. Treinar tambem faz o mundo andar.
+      </div>
+    </section>
+  );
+}
+
+function TrainingPanel({
+  activeTraining,
+  now,
+  onClaim,
+  onStart,
+}: {
+  activeTraining?: TrainingSession;
+  now: Date;
+  onClaim: (sessionId: string) => void;
+  onStart: (trainingId: string) => void;
+}) {
+  const remainingMs = activeTraining
+    ? Math.max(0, new Date(activeTraining.finishesAtIso).getTime() - now.getTime())
+    : 0;
+  const canClaim = Boolean(activeTraining && remainingMs === 0);
+  const activeDefinition = useMemo(
+    () => trainingDefinitions.find((training) => training.id === activeTraining?.trainingId),
+    [activeTraining],
+  );
+
+  return (
+    <section className="rounded border border-ink/15 bg-parchment/90 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Treino</h2>
+          <p className="mt-1 text-sm text-ink/65">Melhorias levam tempo real e tempo do mundo.</p>
+        </div>
+        <Dumbbell className="text-ember" size={24} />
+      </div>
+
+      {activeTraining ? (
+        <div className="mt-5 rounded border border-ember/30 bg-ember/10 p-4">
+          <p className="font-semibold text-ink">{activeDefinition?.name ?? activeTraining.trainingId}</p>
+          <p className="mt-2 text-sm text-ink/70">
+            Termina em {formatRemaining(remainingMs)}. Ao resgatar, o mundo avanca{" "}
+            {activeTraining.worldTimeAdvanceMinutes / 60} horas.
+          </p>
+          <button
+            className={clsx(
+              "mt-4 flex w-full items-center justify-center gap-2 rounded px-4 py-3 text-sm font-semibold transition",
+              canClaim
+                ? "bg-ink text-parchment hover:bg-night"
+                : "cursor-not-allowed bg-ink/15 text-ink/45",
+            )}
+            disabled={!canClaim}
+            onClick={() => onClaim(activeTraining.id)}
+          >
+            <Sparkles size={16} />
+            Resgatar treino
+          </button>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-3">
+          {trainingDefinitions.map((training) => (
+            <button
+              className="rounded border border-ink/15 bg-white/60 p-4 text-left transition hover:border-ember/60 hover:bg-white"
+              key={training.id}
+              onClick={() => onStart(training.id)}
+            >
+              <span className="block font-semibold text-ink">{training.name}</span>
+              <span className="mt-2 block text-sm leading-6 text-ink/65">
+                {training.realDurationMinutes} min reais,{" "}
+                {training.worldTimeAdvanceMinutes / 60}h no mundo, {training.staminaCost} stamina
+                {training.goldCost ? `, ${training.goldCost} ouro` : ""}.
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CharacterPanel({ gameState }: { gameState: GameState }) {
+  const { player } = gameState;
+  const stats = [
+    ["FOR", player.stats.strength],
+    ["AGI", player.stats.agility],
+    ["VIT", player.stats.vitality],
+    ["INT", player.stats.intelligence],
+    ["SAB", player.stats.wisdom],
+    ["CAR", player.stats.charisma],
+    ["SOR", player.stats.luck],
+  ];
+
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <h2 className="text-lg font-bold text-ink">Personagem</h2>
+      <div className="mt-4 grid gap-3 text-sm">
+        <Meter icon={<Heart size={16} />} label="Vida" value={player.hp} max={player.maxHp} />
+        <Meter icon={<Zap size={16} />} label="Stamina" value={player.energy.stamina} max={player.energy.maxStamina} />
+        <Meter label="Fadiga" value={player.energy.fatigue} max={100} inverted />
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+        <StatusPill icon={<Coins size={16} />} label={`${player.gold} ouro`} />
+        <StatusPill label={`Nivel ${player.level}`} />
+      </div>
+      <div className="mt-5 grid grid-cols-4 gap-2">
+        {stats.map(([label, value]) => (
+          <div className="rounded bg-ink/5 px-3 py-2 text-center" key={label}>
+            <p className="text-xs font-semibold text-ink/50">{label}</p>
+            <p className="mt-1 text-lg font-bold text-ink">{value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function WorldPanel({ danger, gameState }: { danger: number; gameState: GameState }) {
+  const location = gameState.world.locations[gameState.currentLocationId];
+
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <h2 className="text-lg font-bold text-ink">Mundo</h2>
+      <dl className="mt-4 space-y-3 text-sm">
+        <InfoRow label="Local" value={location?.name ?? "-"} />
+        <InfoRow label="Periodo" value={periodLabel(gameState.clock.period)} />
+        <InfoRow label="Perigo efetivo" value={String(danger)} />
+        <InfoRow label="Treinos ativos" value={String(gameState.activeTrainingSessions.length)} />
+      </dl>
+    </section>
+  );
+}
+
+function RestPanel({ onSleep }: { onSleep: () => void }) {
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <h2 className="text-lg font-bold text-ink">Descanso</h2>
+      <p className="mt-2 text-sm leading-6 text-ink/65">
+        Dormir recupera stamina, reduz fadiga e avanca o relogio do mundo.
+      </p>
+      <button
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded bg-moss px-4 py-3 text-sm font-semibold text-white transition hover:bg-moss/85"
+        onClick={onSleep}
+      >
+        <Moon size={16} />
+        Dormir 8h
+      </button>
+    </section>
+  );
+}
+
+function StatusPill({
+  icon,
+  label,
+  tone = "default",
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex min-h-9 items-center gap-2 rounded border px-3 py-2 font-semibold",
+        tone === "danger"
+          ? "border-ember/35 bg-ember/10 text-ember"
+          : "border-ink/15 bg-white/60 text-ink",
+      )}
+    >
+      {icon}
+      {label}
+    </span>
+  );
+}
+
+function Meter({
+  icon,
+  inverted = false,
+  label,
+  max,
+  value,
+}: {
+  icon?: React.ReactNode;
+  inverted?: boolean;
+  label: string;
+  max: number;
+  value: number;
+}) {
+  const percent = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  const fill = inverted ? 100 - percent : percent;
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 font-semibold text-ink/75">
+          {icon}
+          {label}
+        </span>
+        <span className="text-ink/60">
+          {value} / {max}
+        </span>
+      </div>
+      <div className="h-2 rounded bg-ink/10">
+        <div className="h-2 rounded bg-ember" style={{ width: `${fill}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-ink/55">{label}</dt>
+      <dd className="text-right font-semibold text-ink">{value}</dd>
+    </div>
+  );
+}
+
+function formatRemaining(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function periodLabel(period: string): string {
+  const labels: Record<string, string> = {
+    dawn: "Amanhecer",
+    morning: "Manha",
+    afternoon: "Tarde",
+    evening: "Anoitecer",
+    night: "Noite",
+    late_night: "Madrugada",
+  };
+
+  return labels[period] ?? period;
+}
+
