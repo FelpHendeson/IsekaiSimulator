@@ -75,6 +75,60 @@ export type QuestState = {
   deadline?: GameClockState;
 };
 
+export type SceneRequirement =
+  | {
+      type: "flagEquals";
+      key: string;
+      value: boolean | string | number;
+    }
+  | {
+      type: "hasItem";
+      itemId: string;
+    };
+
+export type SceneEffect =
+  | {
+      type: "setFlag";
+      key: string;
+      value: boolean | string | number;
+    }
+  | {
+      type: "addGold";
+      amount: number;
+    }
+  | {
+      type: "addItem";
+      itemId: string;
+    }
+  | {
+      type: "startQuest";
+      questId: string;
+    }
+  | {
+      type: "setLocation";
+      locationId: string;
+    }
+  | {
+      type: "addLog";
+      message: string;
+    };
+
+export type SceneChoice = {
+  id: string;
+  label: string;
+  nextSceneId?: string;
+  timeCostMinutes?: number;
+  requirements?: SceneRequirement[];
+  effects?: SceneEffect[];
+};
+
+export type SceneDefinition = {
+  id: string;
+  title: string;
+  text: string;
+  choices: SceneChoice[];
+};
+
 export type TrainingReward =
   | {
       type: "stat";
@@ -134,7 +188,7 @@ export type GameState = {
 };
 
 export type GameAction =
+  | { type: "CHOOSE_SCENE_OPTION"; optionId: string }
   | { type: "START_TRAINING"; trainingId: string }
   | { type: "CLAIM_TRAINING"; trainingSessionId: string }
   | { type: "SLEEP"; hours: number };
-

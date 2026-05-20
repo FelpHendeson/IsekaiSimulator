@@ -17,12 +17,14 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { sceneDefinitions } from "../../content/scenes/definitions";
 import { trainingDefinitions } from "../../content/training/definitions";
 import { applyGameAction } from "../../game/core/apply-action";
 import { GameRuleError } from "../../game/core/errors";
 import { createInitialGameState } from "../../game/core/initial-state";
+import { getCurrentScene, isChoiceAvailable } from "../../game/narrative/scenes";
 import { formatClock } from "../../game/time/clock";
-import type { GameState, TrainingSession } from "../../game/types";
+import type { GameState, SceneChoice, SceneDefinition, TrainingSession } from "../../game/types";
 import { getEffectiveDanger } from "../../game/world/danger";
 
 type AuthUser = {
@@ -72,6 +74,7 @@ export function GameShell() {
     ? getEffectiveDanger(currentLocation, gameState.clock)
     : 0;
   const activeTraining = gameState.activeTrainingSessions[0];
+  const currentScene = getCurrentScene(gameState, sceneDefinitions);
 
   function runAction(action: Parameters<typeof applyGameAction>[1], successMessage: string) {
     try {
@@ -165,7 +168,17 @@ export function GameShell() {
             onSave={saveGame}
           />
 
-          <NarrativePanel message={message} />
+          <NarrativePanel
+            gameState={gameState}
+            message={message}
+            scene={currentScene}
+            onChoose={(choice) =>
+              runAction(
+                { type: "CHOOSE_SCENE_OPTION", optionId: choice.id },
+                `Escolha registrada: ${choice.label}`,
+              )
+            }
+          />
 
           <TrainingPanel
             activeTraining={activeTraining}
@@ -419,15 +432,54 @@ function AuthPanel({
   );
 }
 
-function NarrativePanel({ message }: { message: string }) {
+function NarrativePanel({
+  gameState,
+  message,
+  onChoose,
+  scene,
+}: {
+  gameState: GameState;
+  message: string;
+  onChoose: (choice: SceneChoice) => void;
+  scene?: SceneDefinition;
+}) {
   return (
     <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
       <p className="text-sm font-semibold uppercase tracking-wide text-ember">Cena atual</p>
-      <p className="mt-4 text-lg leading-8 text-ink/80">{message}</p>
+      <h2 className="mt-3 text-2xl font-bold text-ink">{scene?.title ?? "Sem cena ativa"}</h2>
+      <p className="mt-4 text-lg leading-8 text-ink/80">
+        {scene?.text ?? "O estado atual nao aponta para uma cena valida."}
+      </p>
       <div className="mt-5 rounded bg-night px-4 py-3 text-sm leading-6 text-parchment">
-        Uma vila parece segura durante o dia, mas o mesmo caminho pode virar uma
-        armadilha quando anoitece. Treinar tambem faz o mundo andar.
+        {message}
       </div>
+
+      {scene ? (
+        <div className="mt-5 grid gap-3">
+          {scene.choices.map((choice) => {
+            const available = isChoiceAvailable(gameState, choice);
+
+            return (
+              <button
+                className={clsx(
+                  "rounded border p-4 text-left transition",
+                  available
+                    ? "border-ink/15 bg-parchment/85 hover:border-ember/60 hover:bg-parchment"
+                    : "cursor-not-allowed border-ink/10 bg-ink/5 text-ink/40",
+                )}
+                disabled={!available}
+                key={choice.id}
+                onClick={() => onChoose(choice)}
+              >
+                <span className="block font-semibold">{choice.label}</span>
+                <span className="mt-1 block text-sm text-ink/60">
+                  {choice.timeCostMinutes ? `${choice.timeCostMinutes} min no mundo` : "Sem custo de tempo"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </section>
   );
 }
