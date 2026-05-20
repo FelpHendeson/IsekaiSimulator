@@ -63,12 +63,12 @@ export const npcDefinitions: NpcDefinition[] = [
     schedule: [
       {
         period: "morning",
-        locationId: "first_village",
+        locationId: "guild_hall",
         availableInteractions: ["register", "quests"],
       },
       {
         period: "afternoon",
-        locationId: "first_village",
+        locationId: "guild_hall",
         availableInteractions: ["register", "quests", "reward"],
       },
     ],
@@ -93,4 +93,3 @@ export const npcDefinitions: NpcDefinition[] = [
     ],
   },
 ];
-

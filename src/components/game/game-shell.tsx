@@ -9,7 +9,10 @@ import {
   Heart,
   LogIn,
   LogOut,
+  Map,
+  ListTodo,
   Moon,
+  Navigation,
   Swords,
   Save,
   ShieldAlert,
@@ -20,6 +23,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { enemyDefinitions } from "../../content/enemies/definitions";
 import { npcDefinitions } from "../../content/npcs/definitions";
+import { questDefinitions } from "../../content/quests/definitions";
 import { sceneDefinitions } from "../../content/scenes/definitions";
 import { trainingDefinitions } from "../../content/training/definitions";
 import { applyGameAction } from "../../game/core/apply-action";
@@ -27,15 +31,22 @@ import { GameRuleError } from "../../game/core/errors";
 import { createInitialGameState } from "../../game/core/initial-state";
 import { getCurrentScene, isChoiceAvailable } from "../../game/narrative/scenes";
 import { getAvailableNpcs, getNpcInteractions } from "../../game/npc/schedule";
+import { getAvailableQuestDefinitions, getQuestStateLabel } from "../../game/quests/quests";
 import { formatClock } from "../../game/time/clock";
 import type {
   GameState,
+  LocationDefinition,
   NpcDefinition,
   SceneChoice,
   SceneDefinition,
   TrainingSession,
 } from "../../game/types";
 import { getEffectiveDanger } from "../../game/world/danger";
+import {
+  getLocationPath,
+  getNavigableLocations,
+  locationLevelLabels,
+} from "../../game/world/navigation";
 
 type AuthUser = {
   id: string;
@@ -86,6 +97,11 @@ export function GameShell() {
   const activeTraining = gameState.activeTrainingSessions[0];
   const currentScene = getCurrentScene(gameState, sceneDefinitions);
   const currentEnemy = enemyDefinitions.find((enemy) => enemy.id === gameState.combat?.enemyId);
+  const locationPath = getLocationPath(gameState.currentLocationId, gameState.world.locations);
+  const navigableLocations = currentLocation
+    ? getNavigableLocations(currentLocation, gameState.world.locations)
+    : [];
+  const availableQuests = getAvailableQuestDefinitions(gameState);
   const availableNpcs = getAvailableNpcs(
     npcDefinitions,
     gameState.currentLocationId,
@@ -278,6 +294,27 @@ export function GameShell() {
             }}
           />
           <CharacterPanel gameState={gameState} />
+          <MapPanel
+            currentLocation={currentLocation}
+            locationPath={locationPath}
+            navigableLocations={navigableLocations}
+            onNavigate={(locationId) =>
+              runAction(
+                { type: "NAVIGATE_LOCATION", locationId },
+                `Voce se desloca para ${gameState.world.locations[locationId]?.name ?? "outro local"}.`,
+              )
+            }
+          />
+          <QuestPanel
+            availableQuests={availableQuests}
+            gameState={gameState}
+            onAccept={(questId) =>
+              runAction(
+                { type: "ACCEPT_QUEST", questId },
+                `Missao aceita: ${questDefinitions.find((quest) => quest.id === questId)?.title ?? questId}.`,
+              )
+            }
+          />
           <WorldPanel
             availableNpcs={availableNpcs}
             gameState={gameState}
@@ -294,6 +331,142 @@ export function GameShell() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function QuestPanel({
+  availableQuests,
+  gameState,
+  onAccept,
+}: {
+  availableQuests: typeof questDefinitions;
+  gameState: GameState;
+  onAccept: (questId: string) => void;
+}) {
+  const activeQuests = gameState.quests
+    .map((questState) => ({
+      state: questState,
+      definition: questDefinitions.find((quest) => quest.id === questState.id),
+    }))
+    .filter((entry) => entry.definition);
+
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Missoes</h2>
+          <p className="mt-1 text-sm text-ink/65">Trabalhos mudam conforme sua localidade.</p>
+        </div>
+        <ListTodo className="text-ember" size={22} />
+      </div>
+
+      <div className="mt-4">
+        <p className="text-sm font-semibold text-ink/75">Disponiveis aqui</p>
+        <div className="mt-3 space-y-2">
+          {availableQuests.length > 0 ? (
+            availableQuests.map((quest) => (
+              <button
+                className="w-full rounded border border-ink/15 bg-parchment/80 p-3 text-left text-sm transition hover:border-ember/60 hover:bg-parchment"
+                key={quest.id}
+                onClick={() => onAccept(quest.id)}
+              >
+                <span className="block font-semibold text-ink">{quest.title}</span>
+                <span className="mt-1 block leading-5 text-ink/65">{quest.description}</span>
+                <span className="mt-2 block text-xs uppercase tracking-wide text-ember">
+                  Nivel {quest.recommendedLevel} - {quest.rewardXp} XP - {quest.rewardGold} ouro
+                </span>
+              </button>
+            ))
+          ) : (
+            <p className="rounded bg-ink/5 p-3 text-sm text-ink/60">
+              Nenhuma missao nova nesta localidade.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <p className="text-sm font-semibold text-ink/75">Registradas</p>
+        <div className="mt-3 space-y-2">
+          {activeQuests.length > 0 ? (
+            activeQuests.map(({ definition, state }) => (
+              <div className="rounded bg-ink/5 p-3 text-sm" key={state.id}>
+                <p className="font-semibold text-ink">{definition?.title}</p>
+                <p className="mt-1 text-ink/60">{getQuestStateLabel(state)}</p>
+              </div>
+            ))
+          ) : (
+            <p className="rounded bg-ink/5 p-3 text-sm text-ink/60">
+              Nenhuma missao aceita ainda.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MapPanel({
+  currentLocation,
+  locationPath,
+  navigableLocations,
+  onNavigate,
+}: {
+  currentLocation?: LocationDefinition;
+  locationPath: LocationDefinition[];
+  navigableLocations: LocationDefinition[];
+  onNavigate: (locationId: string) => void;
+}) {
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Mapa</h2>
+          <p className="mt-1 text-sm text-ink/65">Navegue pela arvore do mundo.</p>
+        </div>
+        <Map className="text-ember" size={22} />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {locationPath.map((location) => (
+          <div className="flex items-center justify-between gap-3 rounded bg-ink/5 px-3 py-2 text-sm" key={location.id}>
+            <span className="text-ink/55">{locationLevelLabels[location.level]}</span>
+            <span className="text-right font-semibold text-ink">{location.name}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5">
+        <p className="text-sm font-semibold text-ink/75">Destinos</p>
+        <div className="mt-3 grid gap-2">
+          {navigableLocations.length > 0 ? (
+            navigableLocations.map((location) => (
+              <button
+                className="flex items-center justify-between gap-3 rounded border border-ink/15 bg-parchment/80 px-3 py-3 text-left text-sm transition hover:border-ember/60 hover:bg-parchment"
+                key={location.id}
+                onClick={() => onNavigate(location.id)}
+              >
+                <span>
+                  <span className="block font-semibold text-ink">{location.name}</span>
+                  <span className="mt-1 block text-ink/55">{locationLevelLabels[location.level]}</span>
+                </span>
+                <Navigation className="shrink-0 text-ember" size={16} />
+              </button>
+            ))
+          ) : (
+            <p className="rounded bg-ink/5 p-3 text-sm text-ink/60">
+              Nenhum destino conectado.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {currentLocation ? (
+        <p className="mt-4 text-xs leading-5 text-ink/55">
+          Local atual: {currentLocation.name}. Entrar e sair de niveis da arvore tambem avanca o tempo.
+        </p>
+      ) : null}
+    </section>
   );
 }
 

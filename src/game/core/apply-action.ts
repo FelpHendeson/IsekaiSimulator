@@ -3,8 +3,10 @@ import { trainingDefinitions } from "../../content/training/definitions";
 import { applyPlayerCombatAction, startCombat } from "../combat/combat";
 import { sleep as sleepEnergy } from "../energy/energy";
 import { chooseSceneOption } from "../narrative/scenes";
+import { acceptQuest } from "../quests/quests";
 import { advanceClock } from "../time/clock";
 import { claimTraining, startTraining } from "../training/training";
+import { navigateLocation } from "../world/navigation";
 import type { GameAction, GameState, SceneDefinition, TrainingDefinition } from "../types";
 
 export type GameActionContext = {
@@ -29,6 +31,14 @@ export function applyGameAction(
       now,
       definitions: scenes,
     });
+  }
+
+  if (action.type === "NAVIGATE_LOCATION") {
+    return navigateLocation(state, action.locationId);
+  }
+
+  if (action.type === "ACCEPT_QUEST") {
+    return acceptQuest(state, action.questId);
   }
 
   if (action.type === "START_COMBAT") {

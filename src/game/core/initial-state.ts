@@ -1,3 +1,4 @@
+import { locationDefinitions } from "../../content/world/locations";
 import { createClock } from "../time/clock";
 import type { GameState } from "../types";
 
@@ -33,36 +34,7 @@ export function createInitialGameState(): GameState {
       },
     },
     world: {
-      locations: {
-        first_village: {
-          id: "first_village",
-          name: "Vila de Elaria",
-          type: "village",
-          dangerLevel: 1,
-          dangerByTime: {
-            evening: 1,
-            night: 2,
-            late_night: 3,
-          },
-          connectedLocations: ["shadow_woods"],
-          npcIds: ["hooded_mentor", "village_blacksmith"],
-          eventPoolIds: ["village_day", "village_night"],
-        },
-        shadow_woods: {
-          id: "shadow_woods",
-          name: "Bosque Sombrio",
-          type: "forest",
-          dangerLevel: 3,
-          dangerByTime: {
-            evening: 2,
-            night: 4,
-            late_night: 5,
-          },
-          connectedLocations: ["first_village"],
-          npcIds: [],
-          eventPoolIds: ["forest_common", "forest_night"],
-        },
-      },
+      locations: locationDefinitions,
     },
     inventory: {
       itemIds: ["small_potion"],
@@ -80,4 +52,3 @@ export function createInitialGameState(): GameState {
     ],
   };
 }
-

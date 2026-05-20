@@ -49,13 +49,36 @@ export type TimeWindow = {
   toHour: number;
 };
 
+export type LocationLevel =
+  | "planet"
+  | "continent"
+  | "country"
+  | "state"
+  | "city"
+  | "locality";
+
 export type LocationDefinition = {
   id: string;
   name: string;
-  type: "village" | "city" | "dungeon" | "forest" | "castle" | "temple";
+  level: LocationLevel;
+  type:
+    | "planet"
+    | "continent"
+    | "country"
+    | "state"
+    | "village"
+    | "city"
+    | "dungeon"
+    | "forest"
+    | "castle"
+    | "temple"
+    | "district"
+    | "road";
   dangerLevel: number;
   dangerByTime?: Partial<Record<TimePeriod, number>>;
   openHours?: TimeWindow[];
+  parentLocationId?: string;
+  childLocationIds: string[];
   connectedLocations: string[];
   npcIds: string[];
   eventPoolIds: string[];
@@ -73,6 +96,16 @@ export type QuestState = {
   id: string;
   status: "available" | "active" | "completed" | "failed";
   deadline?: GameClockState;
+};
+
+export type QuestDefinition = {
+  id: string;
+  title: string;
+  description: string;
+  startLocationId: string;
+  recommendedLevel: number;
+  rewardGold: number;
+  rewardXp: number;
 };
 
 export type SceneRequirement =
@@ -222,6 +255,8 @@ export type GameState = {
 
 export type GameAction =
   | { type: "CHOOSE_SCENE_OPTION"; optionId: string }
+  | { type: "NAVIGATE_LOCATION"; locationId: string }
+  | { type: "ACCEPT_QUEST"; questId: string }
   | { type: "START_COMBAT"; enemyId: string }
   | { type: "PLAYER_COMBAT_ACTION"; action: "attack" | "defend" | "flee" }
   | { type: "START_TRAINING"; trainingId: string }

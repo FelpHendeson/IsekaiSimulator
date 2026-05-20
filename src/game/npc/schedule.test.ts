@@ -4,14 +4,19 @@ import { createClock } from "../time/clock";
 import { getAvailableNpcs, getNpcInteractions } from "./schedule";
 
 describe("npc schedule", () => {
-  it("returns daytime NPCs in the village", () => {
+  it("returns daytime NPCs in the village square", () => {
     const npcs = getAvailableNpcs(npcDefinitions, "first_village", createClock(1, 9, 0));
 
     expect(npcs.map((npc) => npc.id)).toEqual([
       "hooded_mentor",
       "village_blacksmith",
-      "guild_clerk",
     ]);
+  });
+
+  it("returns guild NPCs in the guild hall", () => {
+    const npcs = getAvailableNpcs(npcDefinitions, "guild_hall", createClock(1, 9, 0));
+
+    expect(npcs.map((npc) => npc.id)).toContain("guild_clerk");
   });
 
   it("returns night-only NPCs at night", () => {
@@ -30,4 +35,3 @@ describe("npc schedule", () => {
     );
   });
 });
-
