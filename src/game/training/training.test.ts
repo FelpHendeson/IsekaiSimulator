@@ -56,6 +56,30 @@ describe("training", () => {
     ).toThrow(GameRuleError);
   });
 
+  it("claims training immediately when dev mode is enabled", () => {
+    const state = createInitialGameState();
+    const started = applyGameAction(
+      state,
+      { type: "START_TRAINING", trainingId: "strength_basics" },
+      {
+        now: new Date("2026-05-20T12:00:00.000Z"),
+        createSessionId: () => "training-1",
+      },
+    );
+
+    const claimed = applyGameAction(
+      started,
+      { type: "CLAIM_TRAINING", trainingSessionId: "training-1" },
+      {
+        now: new Date("2026-05-20T12:00:01.000Z"),
+        devMode: true,
+      },
+    );
+
+    expect(claimed.activeTrainingSessions).toEqual([]);
+    expect(claimed.player.stats.strength).toBe(5);
+  });
+
   it("claims training rewards and advances world time", () => {
     const state = createInitialGameState();
     const started = applyGameAction(
@@ -88,4 +112,3 @@ describe("training", () => {
     expect(claimed.activeTrainingSessions).toEqual([]);
   });
 });
-

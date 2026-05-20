@@ -8,6 +8,7 @@ export type GameActionContext = {
   now?: Date;
   trainingDefinitions?: TrainingDefinition[];
   createSessionId?: () => string;
+  devMode?: boolean;
 };
 
 export function applyGameAction(
@@ -23,6 +24,7 @@ export function applyGameAction(
       now,
       definitions,
       createSessionId: context.createSessionId,
+      devMode: context.devMode,
     });
   }
 
@@ -31,6 +33,7 @@ export function applyGameAction(
       now,
       definitions,
       createSessionId: context.createSessionId,
+      devMode: context.devMode,
     });
   }
 
@@ -43,4 +46,3 @@ export function applyGameAction(
     },
   };
 }
-

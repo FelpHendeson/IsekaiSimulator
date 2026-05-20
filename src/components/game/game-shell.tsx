@@ -27,6 +27,7 @@ export function GameShell() {
   const [message, setMessage] = useState("Voce desperta em Elaria enquanto o mundo segue seu proprio relogio.");
   const [now, setNow] = useState(() => new Date());
   const [isPersisting, setIsPersisting] = useState(false);
+  const devMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -42,7 +43,7 @@ export function GameShell() {
 
   function runAction(action: Parameters<typeof applyGameAction>[1], successMessage: string) {
     try {
-      setGameState((current) => applyGameAction(current, action, { now }));
+      setGameState((current) => applyGameAction(current, action, { now, devMode }));
       setMessage(successMessage);
     } catch (error) {
       if (error instanceof GameRuleError) {
@@ -115,6 +116,7 @@ export function GameShell() {
             period={gameState.clock.period}
             locationName={currentLocation?.name ?? "Local desconhecido"}
             danger={effectiveDanger}
+            devMode={devMode}
             isPersisting={isPersisting}
             onLoad={loadGame}
             onSave={saveGame}
@@ -124,6 +126,7 @@ export function GameShell() {
 
           <TrainingPanel
             activeTraining={activeTraining}
+            devMode={devMode}
             now={now}
             onClaim={(sessionId) =>
               runAction(
@@ -160,6 +163,7 @@ export function GameShell() {
 function HeaderPanel({
   clockLabel,
   danger,
+  devMode,
   isPersisting,
   locationName,
   onLoad,
@@ -168,6 +172,7 @@ function HeaderPanel({
 }: {
   clockLabel: string;
   danger: number;
+  devMode: boolean;
   isPersisting: boolean;
   locationName: string;
   onLoad: () => void;
@@ -185,6 +190,7 @@ function HeaderPanel({
           <StatusPill icon={<Clock3 size={16} />} label={clockLabel} />
           <StatusPill label={periodLabel(period)} />
           <StatusPill icon={<ShieldAlert size={16} />} label={`Perigo ${danger}`} tone="danger" />
+          {devMode ? <StatusPill label="DEV mode" tone="dev" /> : null}
           <button
             className="inline-flex min-h-9 items-center gap-2 rounded border border-ink/15 bg-white/70 px-3 py-2 font-semibold text-ink transition hover:border-ink/35 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isPersisting}
@@ -224,11 +230,13 @@ function NarrativePanel({ message }: { message: string }) {
 
 function TrainingPanel({
   activeTraining,
+  devMode,
   now,
   onClaim,
   onStart,
 }: {
   activeTraining?: TrainingSession;
+  devMode: boolean;
   now: Date;
   onClaim: (sessionId: string) => void;
   onStart: (trainingId: string) => void;
@@ -236,7 +244,7 @@ function TrainingPanel({
   const remainingMs = activeTraining
     ? Math.max(0, new Date(activeTraining.finishesAtIso).getTime() - now.getTime())
     : 0;
-  const canClaim = Boolean(activeTraining && remainingMs === 0);
+  const canClaim = Boolean(activeTraining && (remainingMs === 0 || devMode));
   const activeDefinition = useMemo(
     () => trainingDefinitions.find((training) => training.id === activeTraining?.trainingId),
     [activeTraining],
@@ -256,6 +264,7 @@ function TrainingPanel({
         <div className="mt-5 rounded border border-ember/30 bg-ember/10 p-4">
           <p className="font-semibold text-ink">{activeDefinition?.name ?? activeTraining.trainingId}</p>
           <p className="mt-2 text-sm text-ink/70">
+            {devMode ? "DEV mode ativo: pode resgatar sem esperar. " : ""}
             Termina em {formatRemaining(remainingMs)}. Ao resgatar, o mundo avanca{" "}
             {activeTraining.worldTimeAdvanceMinutes / 60} horas.
           </p>
@@ -270,7 +279,7 @@ function TrainingPanel({
             onClick={() => onClaim(activeTraining.id)}
           >
             <Sparkles size={16} />
-            Resgatar treino
+            {devMode && remainingMs > 0 ? "Resgatar agora" : "Resgatar treino"}
           </button>
         </div>
       ) : (
@@ -372,15 +381,15 @@ function StatusPill({
 }: {
   icon?: React.ReactNode;
   label: string;
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "dev";
 }) {
   return (
     <span
       className={clsx(
         "inline-flex min-h-9 items-center gap-2 rounded border px-3 py-2 font-semibold",
-        tone === "danger"
-          ? "border-ember/35 bg-ember/10 text-ember"
-          : "border-ink/15 bg-white/60 text-ink",
+        tone === "danger" && "border-ember/35 bg-ember/10 text-ember",
+        tone === "dev" && "border-steel/35 bg-steel/10 text-steel",
+        tone === "default" && "border-ink/15 bg-white/60 text-ink",
       )}
     >
       {icon}

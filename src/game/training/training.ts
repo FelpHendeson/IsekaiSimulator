@@ -13,6 +13,7 @@ export type TrainingContext = {
   now: Date;
   definitions: TrainingDefinition[];
   createSessionId?: () => string;
+  devMode?: boolean;
 };
 
 export function startTraining(
@@ -48,7 +49,7 @@ export function claimTraining(
     throw new GameRuleError("Treino nao encontrado.");
   }
 
-  if (context.now.getTime() < new Date(session.finishesAtIso).getTime()) {
+  if (!context.devMode && context.now.getTime() < new Date(session.finishesAtIso).getTime()) {
     throw new GameRuleError("Treino ainda nao terminou.");
   }
 
@@ -140,4 +141,3 @@ function findTraining(
 
   return training;
 }
-
