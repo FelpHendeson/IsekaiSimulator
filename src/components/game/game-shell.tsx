@@ -10,6 +10,7 @@ import {
   LogIn,
   LogOut,
   Moon,
+  Swords,
   Save,
   ShieldAlert,
   Sparkles,
@@ -17,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { enemyDefinitions } from "../../content/enemies/definitions";
 import { npcDefinitions } from "../../content/npcs/definitions";
 import { sceneDefinitions } from "../../content/scenes/definitions";
 import { trainingDefinitions } from "../../content/training/definitions";
@@ -83,6 +85,7 @@ export function GameShell() {
     : 0;
   const activeTraining = gameState.activeTrainingSessions[0];
   const currentScene = getCurrentScene(gameState, sceneDefinitions);
+  const currentEnemy = enemyDefinitions.find((enemy) => enemy.id === gameState.combat?.enemyId);
   const availableNpcs = getAvailableNpcs(
     npcDefinitions,
     gameState.currentLocationId,
@@ -193,6 +196,25 @@ export function GameShell() {
             }
           />
 
+          <CombatPanel
+            danger={effectiveDanger}
+            enemyName={currentEnemy?.name}
+            enemyMaxHp={currentEnemy?.maxHp}
+            gameState={gameState}
+            onCombatAction={(action) =>
+              runAction(
+                { type: "PLAYER_COMBAT_ACTION", action },
+                action === "flee" ? "Voce recua do combate." : "Turno de combate resolvido.",
+              )
+            }
+            onStart={() =>
+              runAction(
+                { type: "START_COMBAT", enemyId: "shadow_wolf" },
+                "Um Lobo Sombrio surge da estrada.",
+              )
+            }
+          />
+
           <TrainingPanel
             activeTraining={activeTraining}
             devMode={devMode}
@@ -272,6 +294,96 @@ export function GameShell() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function CombatPanel({
+  danger,
+  enemyMaxHp,
+  enemyName,
+  gameState,
+  onCombatAction,
+  onStart,
+}: {
+  danger: number;
+  enemyMaxHp?: number;
+  enemyName?: string;
+  gameState: GameState;
+  onCombatAction: (action: "attack" | "defend" | "flee") => void;
+  onStart: () => void;
+}) {
+  const combat = gameState.combat;
+
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Combate</h2>
+          <p className="mt-1 text-sm text-ink/65">Turnos simples para validar risco e recompensa.</p>
+        </div>
+        <Swords className="text-ember" size={24} />
+      </div>
+
+      {combat ? (
+        <div className="mt-5">
+          <div className="rounded border border-ember/25 bg-ember/10 p-4">
+            <p className="font-semibold text-ink">{enemyName ?? combat.enemyId}</p>
+            <p className="mt-1 text-sm text-ink/65">
+              Vida inimiga: {combat.enemyHp} / {enemyMaxHp ?? "?"}
+            </p>
+            <div className="mt-3 h-2 rounded bg-ink/10">
+              <div
+                className="h-2 rounded bg-ember"
+                style={{
+                  width: `${enemyMaxHp ? Math.max(0, (combat.enemyHp / enemyMaxHp) * 100) : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <button
+              className="rounded bg-ink px-4 py-3 text-sm font-semibold text-parchment transition hover:bg-night"
+              onClick={() => onCombatAction("attack")}
+            >
+              Atacar
+            </button>
+            <button
+              className="rounded border border-ink/20 px-4 py-3 text-sm font-semibold text-ink transition hover:border-ink/45"
+              onClick={() => onCombatAction("defend")}
+            >
+              Defender
+            </button>
+            <button
+              className="rounded border border-ink/20 px-4 py-3 text-sm font-semibold text-ink transition hover:border-ink/45"
+              onClick={() => onCombatAction("flee")}
+            >
+              Fugir
+            </button>
+          </div>
+          <div className="mt-4 space-y-2">
+            {combat.log.map((entry, index) => (
+              <p className="rounded bg-ink/5 px-3 py-2 text-sm text-ink/70" key={`${entry}-${index}`}>
+                {entry}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 rounded bg-ink/5 p-4">
+          <p className="text-sm leading-6 text-ink/70">
+            Nenhum combate em andamento. O perigo local atual e {danger}; areas mais perigosas
+            devem gerar inimigos mais fortes nas proximas etapas.
+          </p>
+          <button
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded bg-ink px-4 py-3 text-sm font-semibold text-parchment transition hover:bg-night"
+            onClick={onStart}
+          >
+            <Swords size={16} />
+            Procurar confronto
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 

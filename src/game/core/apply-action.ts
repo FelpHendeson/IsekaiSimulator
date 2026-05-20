@@ -1,5 +1,6 @@
 import { sceneDefinitions } from "../../content/scenes/definitions";
 import { trainingDefinitions } from "../../content/training/definitions";
+import { applyPlayerCombatAction, startCombat } from "../combat/combat";
 import { sleep as sleepEnergy } from "../energy/energy";
 import { chooseSceneOption } from "../narrative/scenes";
 import { advanceClock } from "../time/clock";
@@ -28,6 +29,14 @@ export function applyGameAction(
       now,
       definitions: scenes,
     });
+  }
+
+  if (action.type === "START_COMBAT") {
+    return startCombat(state, action.enemyId);
+  }
+
+  if (action.type === "PLAYER_COMBAT_ACTION") {
+    return applyPlayerCombatAction(state, action.action);
   }
 
   if (action.type === "START_TRAINING") {

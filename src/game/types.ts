@@ -181,6 +181,23 @@ export type TrainingSession = {
   staminaCost: number;
 };
 
+export type EnemyDefinition = {
+  id: string;
+  name: string;
+  maxHp: number;
+  attack: number;
+  defense: number;
+  xpReward: number;
+  goldReward: number;
+};
+
+export type CombatState = {
+  enemyId: string;
+  enemyHp: number;
+  playerDefending: boolean;
+  log: string[];
+};
+
 export type GameLogEntry = {
   id: string;
   createdAtIso: string;
@@ -199,11 +216,14 @@ export type GameState = {
   flags: Record<string, boolean | string | number>;
   achievements: string[];
   activeTrainingSessions: TrainingSession[];
+  combat?: CombatState;
   eventLog: GameLogEntry[];
 };
 
 export type GameAction =
   | { type: "CHOOSE_SCENE_OPTION"; optionId: string }
+  | { type: "START_COMBAT"; enemyId: string }
+  | { type: "PLAYER_COMBAT_ACTION"; action: "attack" | "defend" | "flee" }
   | { type: "START_TRAINING"; trainingId: string }
   | { type: "CLAIM_TRAINING"; trainingSessionId: string }
   | { type: "SLEEP"; hours: number };
