@@ -129,6 +129,21 @@ export type SceneDefinition = {
   choices: SceneChoice[];
 };
 
+export type NpcScheduleRule = {
+  period: TimePeriod;
+  locationId: string;
+  availableInteractions: string[];
+};
+
+export type NpcDefinition = {
+  id: string;
+  name: string;
+  role: string;
+  faction?: string;
+  personality: string;
+  schedule: NpcScheduleRule[];
+};
+
 export type TrainingReward =
   | {
       type: "stat";

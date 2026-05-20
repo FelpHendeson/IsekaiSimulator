@@ -17,14 +17,22 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { npcDefinitions } from "../../content/npcs/definitions";
 import { sceneDefinitions } from "../../content/scenes/definitions";
 import { trainingDefinitions } from "../../content/training/definitions";
 import { applyGameAction } from "../../game/core/apply-action";
 import { GameRuleError } from "../../game/core/errors";
 import { createInitialGameState } from "../../game/core/initial-state";
 import { getCurrentScene, isChoiceAvailable } from "../../game/narrative/scenes";
+import { getAvailableNpcs, getNpcInteractions } from "../../game/npc/schedule";
 import { formatClock } from "../../game/time/clock";
-import type { GameState, SceneChoice, SceneDefinition, TrainingSession } from "../../game/types";
+import type {
+  GameState,
+  NpcDefinition,
+  SceneChoice,
+  SceneDefinition,
+  TrainingSession,
+} from "../../game/types";
 import { getEffectiveDanger } from "../../game/world/danger";
 
 type AuthUser = {
@@ -75,6 +83,11 @@ export function GameShell() {
     : 0;
   const activeTraining = gameState.activeTrainingSessions[0];
   const currentScene = getCurrentScene(gameState, sceneDefinitions);
+  const availableNpcs = getAvailableNpcs(
+    npcDefinitions,
+    gameState.currentLocationId,
+    gameState.clock,
+  );
 
   function runAction(action: Parameters<typeof applyGameAction>[1], successMessage: string) {
     try {
@@ -243,7 +256,11 @@ export function GameShell() {
             }}
           />
           <CharacterPanel gameState={gameState} />
-          <WorldPanel gameState={gameState} danger={effectiveDanger} />
+          <WorldPanel
+            availableNpcs={availableNpcs}
+            gameState={gameState}
+            danger={effectiveDanger}
+          />
           <RestPanel
             onSleep={() =>
               runAction(
@@ -596,7 +613,15 @@ function CharacterPanel({ gameState }: { gameState: GameState }) {
   );
 }
 
-function WorldPanel({ danger, gameState }: { danger: number; gameState: GameState }) {
+function WorldPanel({
+  availableNpcs,
+  danger,
+  gameState,
+}: {
+  availableNpcs: NpcDefinition[];
+  danger: number;
+  gameState: GameState;
+}) {
   const location = gameState.world.locations[gameState.currentLocationId];
 
   return (
@@ -608,6 +633,26 @@ function WorldPanel({ danger, gameState }: { danger: number; gameState: GameStat
         <InfoRow label="Perigo efetivo" value={String(danger)} />
         <InfoRow label="Treinos ativos" value={String(gameState.activeTrainingSessions.length)} />
       </dl>
+      <div className="mt-5">
+        <p className="text-sm font-semibold text-ink/75">NPCs presentes</p>
+        <div className="mt-3 space-y-2">
+          {availableNpcs.length > 0 ? (
+            availableNpcs.map((npc) => (
+              <div className="rounded bg-ink/5 p-3 text-sm" key={npc.id}>
+                <p className="font-semibold text-ink">{npc.name}</p>
+                <p className="mt-1 text-ink/60">{npc.role}</p>
+                <p className="mt-2 text-xs uppercase tracking-wide text-ember">
+                  {getNpcInteractions(npc, gameState.currentLocationId, gameState.clock).join(", ")}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="rounded bg-ink/5 p-3 text-sm text-ink/60">
+              Ninguem importante esta disponivel neste horario.
+            </p>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
