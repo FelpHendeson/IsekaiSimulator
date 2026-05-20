@@ -90,6 +90,20 @@ export type WorldState = {
 
 export type InventoryState = {
   itemIds: string[];
+  equipped: Partial<Record<EquipmentSlot, string>>;
+};
+
+export type EquipmentSlot = "weapon" | "armor" | "accessory";
+
+export type ItemDefinition = {
+  id: string;
+  name: string;
+  type: "consumable" | "weapon" | "armor" | "accessory" | "material" | "quest";
+  description: string;
+  value: number;
+  rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
+  equipSlot?: EquipmentSlot;
+  effects: Partial<Record<"heal" | "mana" | "attack" | "defense" | "speed", number>>;
 };
 
 export type QuestState = {
@@ -257,6 +271,8 @@ export type GameAction =
   | { type: "CHOOSE_SCENE_OPTION"; optionId: string }
   | { type: "NAVIGATE_LOCATION"; locationId: string }
   | { type: "ACCEPT_QUEST"; questId: string }
+  | { type: "USE_ITEM"; itemId: string }
+  | { type: "EQUIP_ITEM"; itemId: string }
   | { type: "START_COMBAT"; enemyId: string }
   | { type: "PLAYER_COMBAT_ACTION"; action: "attack" | "defend" | "flee" }
   | { type: "START_TRAINING"; trainingId: string }

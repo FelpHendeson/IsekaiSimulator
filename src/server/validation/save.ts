@@ -51,6 +51,7 @@ export const gameStateSchema = z
     inventory: z
       .object({
         itemIds: z.array(z.string()),
+        equipped: z.record(z.string(), z.string()).optional(),
       })
       .passthrough(),
     quests: z.array(z.unknown()),
@@ -62,4 +63,3 @@ export const gameStateSchema = z
   .passthrough();
 
 export type GameStatePayload = z.infer<typeof gameStateSchema>;
-

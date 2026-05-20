@@ -7,6 +7,7 @@ import {
   Dumbbell,
   FolderOpen,
   Heart,
+  Package,
   LogIn,
   LogOut,
   Map,
@@ -33,6 +34,11 @@ import { getCurrentScene, isChoiceAvailable } from "../../game/narrative/scenes"
 import { getAvailableNpcs, getNpcInteractions } from "../../game/npc/schedule";
 import { getAvailableQuestDefinitions, getQuestStateLabel } from "../../game/quests/quests";
 import { formatClock } from "../../game/time/clock";
+import {
+  getEffectiveCombatStats,
+  getEquipmentBonuses,
+  getInventoryItems,
+} from "../../game/inventory/inventory";
 import type {
   GameState,
   LocationDefinition,
@@ -175,7 +181,7 @@ export function GameShell() {
         return;
       }
 
-      setGameState(payload.save.gameState);
+      setGameState(normalizeLoadedGameState(payload.save.gameState));
       setMessage("Partida carregada do MongoDB Atlas.");
     } catch {
       setMessage("Nao foi possivel conectar ao servidor de save.");
@@ -265,6 +271,21 @@ export function GameShell() {
             }}
           />
           <CharacterPanel gameState={gameState} />
+          <InventoryPanel
+            gameState={gameState}
+            onEquip={(itemId) =>
+              runAction(
+                { type: "EQUIP_ITEM", itemId },
+                `Item equipado: ${getInventoryItems([itemId])[0]?.name ?? itemId}.`,
+              )
+            }
+            onUse={(itemId) =>
+              runAction(
+                { type: "USE_ITEM", itemId },
+                `Item usado: ${getInventoryItems([itemId])[0]?.name ?? itemId}.`,
+              )
+            }
+          />
           <MapPanel
             currentLocation={currentLocation}
             locationPath={locationPath}
@@ -331,6 +352,16 @@ export function GameShell() {
       ) : null}
     </main>
   );
+}
+
+function normalizeLoadedGameState(state: GameState): GameState {
+  return {
+    ...state,
+    inventory: {
+      ...state.inventory,
+      equipped: state.inventory.equipped ?? {},
+    },
+  };
 }
 
 function ActivityPanel({
@@ -895,6 +926,8 @@ function TrainingPanel({
 
 function CharacterPanel({ gameState }: { gameState: GameState }) {
   const { player } = gameState;
+  const combatStats = getEffectiveCombatStats(gameState);
+  const equipmentBonuses = getEquipmentBonuses(gameState);
   const stats = [
     ["FOR", player.stats.strength],
     ["AGI", player.stats.agility],
@@ -917,6 +950,26 @@ function CharacterPanel({ gameState }: { gameState: GameState }) {
         <StatusPill icon={<Coins size={16} />} label={`${player.gold} ouro`} />
         <StatusPill label={`Nivel ${player.level}`} />
       </div>
+      <div className="mt-5 grid grid-cols-3 gap-2 text-sm">
+        <div className="rounded bg-ink/5 px-3 py-2 text-center">
+          <p className="text-xs font-semibold text-ink/50">ATQ</p>
+          <p className="mt-1 font-bold text-ink">
+            {combatStats.attack}
+            {equipmentBonuses.attack ? ` (+${equipmentBonuses.attack})` : ""}
+          </p>
+        </div>
+        <div className="rounded bg-ink/5 px-3 py-2 text-center">
+          <p className="text-xs font-semibold text-ink/50">DEF</p>
+          <p className="mt-1 font-bold text-ink">
+            {combatStats.defense}
+            {equipmentBonuses.defense ? ` (+${equipmentBonuses.defense})` : ""}
+          </p>
+        </div>
+        <div className="rounded bg-ink/5 px-3 py-2 text-center">
+          <p className="text-xs font-semibold text-ink/50">VEL</p>
+          <p className="mt-1 font-bold text-ink">{combatStats.speed}</p>
+        </div>
+      </div>
       <div className="mt-5 grid grid-cols-4 gap-2">
         {stats.map(([label, value]) => (
           <div className="rounded bg-ink/5 px-3 py-2 text-center" key={label}>
@@ -924,6 +977,75 @@ function CharacterPanel({ gameState }: { gameState: GameState }) {
             <p className="mt-1 text-lg font-bold text-ink">{value}</p>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function InventoryPanel({
+  gameState,
+  onEquip,
+  onUse,
+}: {
+  gameState: GameState;
+  onEquip: (itemId: string) => void;
+  onUse: (itemId: string) => void;
+}) {
+  const items = getInventoryItems(gameState.inventory.itemIds);
+
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Inventario</h2>
+          <p className="mt-1 text-sm text-ink/65">Itens e equipamentos herdados do prototipo terminal.</p>
+        </div>
+        <Package className="text-ember" size={22} />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {items.map((item) => {
+          const equipped = item.equipSlot
+            ? gameState.inventory.equipped[item.equipSlot] === item.id
+            : false;
+
+          return (
+            <div className="rounded bg-ink/5 p-3 text-sm" key={item.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-ink">{item.name}</p>
+                  <p className="mt-1 leading-5 text-ink/60">{item.description}</p>
+                  <p className="mt-2 text-xs uppercase tracking-wide text-ember">
+                    {item.type} - {item.rarity} - {item.value} ouro
+                  </p>
+                </div>
+                {equipped ? (
+                  <span className="rounded bg-moss/15 px-2 py-1 text-xs font-semibold text-moss">
+                    Equipado
+                  </span>
+                ) : null}
+              </div>
+
+              {item.type === "consumable" ? (
+                <button
+                  className="mt-3 w-full rounded bg-ink px-3 py-2 text-sm font-semibold text-parchment transition hover:bg-night"
+                  onClick={() => onUse(item.id)}
+                >
+                  Usar
+                </button>
+              ) : null}
+
+              {item.equipSlot && !equipped ? (
+                <button
+                  className="mt-3 w-full rounded border border-ink/20 px-3 py-2 text-sm font-semibold text-ink transition hover:border-ink/45"
+                  onClick={() => onEquip(item.id)}
+                >
+                  Equipar
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

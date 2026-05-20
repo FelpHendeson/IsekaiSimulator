@@ -1,5 +1,6 @@
 import { enemyDefinitions } from "../../content/enemies/definitions";
 import { GameRuleError } from "../core/errors";
+import { getEffectiveCombatStats } from "../inventory/inventory";
 import { addExperience } from "../progression/experience";
 import type { EnemyDefinition, GameState } from "../types";
 
@@ -125,7 +126,9 @@ export function applyPlayerCombatAction(
 }
 
 function calculatePlayerDamage(state: GameState, enemy: EnemyDefinition) {
-  return Math.max(1, state.player.stats.strength + 2 - enemy.defense);
+  const stats = getEffectiveCombatStats(state);
+
+  return Math.max(1, stats.attack + 2 - enemy.defense);
 }
 
 function calculateEnemyDamage(
@@ -133,7 +136,7 @@ function calculateEnemyDamage(
   state: GameState,
   defending: boolean,
 ) {
-  const mitigation = Math.floor(state.player.stats.vitality / 2);
+  const mitigation = getEffectiveCombatStats(state).defense;
   const rawDamage = Math.max(1, enemy.attack - mitigation);
 
   return defending ? Math.max(1, Math.floor(rawDamage / 2)) : rawDamage;
@@ -148,4 +151,3 @@ function findEnemy(enemyId: string, enemies = enemyDefinitions) {
 
   return enemy;
 }
-

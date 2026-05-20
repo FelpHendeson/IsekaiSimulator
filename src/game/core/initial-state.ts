@@ -37,7 +37,8 @@ export function createInitialGameState(): GameState {
       locations: locationDefinitions,
     },
     inventory: {
-      itemIds: ["small_potion"],
+      itemIds: ["small_potion", "mana_potion", "iron_sword", "leather_armor"],
+      equipped: {},
     },
     quests: [],
     flags: {},

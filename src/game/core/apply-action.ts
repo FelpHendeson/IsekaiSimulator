@@ -2,6 +2,7 @@ import { sceneDefinitions } from "../../content/scenes/definitions";
 import { trainingDefinitions } from "../../content/training/definitions";
 import { applyPlayerCombatAction, startCombat } from "../combat/combat";
 import { sleep as sleepEnergy } from "../energy/energy";
+import { equipItem, useItem } from "../inventory/inventory";
 import { chooseSceneOption } from "../narrative/scenes";
 import { acceptQuest } from "../quests/quests";
 import { advanceClock } from "../time/clock";
@@ -42,6 +43,14 @@ export function applyGameAction(
 
   if (action.type === "ACCEPT_QUEST") {
     return acceptQuest(state, action.questId);
+  }
+
+  if (action.type === "USE_ITEM") {
+    return useItem(state, action.itemId);
+  }
+
+  if (action.type === "EQUIP_ITEM") {
+    return equipItem(state, action.itemId);
   }
 
   if (action.type === "START_COMBAT") {
