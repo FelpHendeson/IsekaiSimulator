@@ -2,12 +2,12 @@ import { connectMongo } from "../db/mongodb";
 import { SaveModel } from "../models/save";
 import type { GameStatePayload } from "../validation/save";
 
-export async function upsertSave(gameState: GameStatePayload) {
+export async function upsertSave(userId: string, gameState: GameStatePayload) {
   await connectMongo();
 
   return SaveModel.findOneAndUpdate(
-    { saveId: gameState.saveId },
-    { gameState },
+    { userId, saveId: gameState.saveId },
+    { userId, saveId: gameState.saveId, gameState },
     {
       new: true,
       upsert: true,
@@ -16,9 +16,8 @@ export async function upsertSave(gameState: GameStatePayload) {
   ).lean();
 }
 
-export async function findSave(saveId: string) {
+export async function findSave(userId: string, saveId: string) {
   await connectMongo();
 
-  return SaveModel.findOne({ saveId }).lean();
+  return SaveModel.findOne({ userId, saveId }).lean();
 }
-

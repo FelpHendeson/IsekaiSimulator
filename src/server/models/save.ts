@@ -6,7 +6,11 @@ const saveSchema = new Schema(
       type: String,
       required: true,
       index: true,
-      unique: true,
+    },
+    userId: {
+      type: String,
+      required: true,
+      index: true,
     },
     gameState: {
       type: Schema.Types.Mixed,
@@ -19,6 +23,7 @@ const saveSchema = new Schema(
   },
 );
 
+saveSchema.index({ userId: 1, saveId: 1 }, { unique: true });
+
 export const SaveModel =
   mongoose.models.Save ?? mongoose.model("Save", saveSchema);
-
