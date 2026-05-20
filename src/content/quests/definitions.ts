@@ -2,6 +2,15 @@ import type { QuestDefinition } from "../../game/types";
 
 export const questDefinitions: QuestDefinition[] = [
   {
+    id: "awakening_status",
+    title: "Despertar em Elaria",
+    description: "Entenda onde voce acordou, observe a vila e descubra como o sistema de status funciona.",
+    startLocationId: "first_village",
+    recommendedLevel: 1,
+    rewardGold: 5,
+    rewardXp: 10,
+  },
+  {
     id: "guild_registration",
     title: "Registro na Guilda",
     description: "Fale com Mira na Guilda de Elaria e registre sua identidade neste mundo.",
@@ -38,4 +47,3 @@ export const questDefinitions: QuestDefinition[] = [
     rewardXp: 20,
   },
 ];
-

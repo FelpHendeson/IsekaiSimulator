@@ -1,6 +1,7 @@
 import { GameRuleError } from "../core/errors";
 import { advanceClock } from "../time/clock";
 import type { GameState, LocationDefinition, LocationLevel } from "../types";
+import { resolveDangerousAreaEncounter } from "./encounters";
 
 export const locationLevelLabels: Record<LocationLevel, string> = {
   planet: "Planeta",
@@ -22,12 +23,14 @@ export function navigateLocation(state: GameState, locationId: string): GameStat
     throw new GameRuleError("Esse local nao esta conectado ao ponto atual.");
   }
 
-  return {
+  const nextState = {
     ...state,
     currentLocationId: locationId,
     clock: advanceClock(state.clock, getNavigationTimeCost(state.world.locations[state.currentLocationId], target)),
     combat: undefined,
   };
+
+  return resolveDangerousAreaEncounter(nextState);
 }
 
 export function canNavigateToLocation(state: GameState, locationId: string): boolean {
@@ -100,4 +103,3 @@ function getNavigationTimeCost(
 function unique(values: string[]) {
   return [...new Set(values)];
 }
-

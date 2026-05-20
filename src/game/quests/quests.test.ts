@@ -9,6 +9,7 @@ describe("quests", () => {
     const quests = getAvailableQuestDefinitions(state);
 
     expect(quests.map((quest) => quest.id)).toEqual([
+      "awakening_status",
       "shadow_wolf_notice",
       "first_training",
       "night_rumor",
@@ -27,4 +28,3 @@ describe("quests", () => {
     });
   });
 });
-

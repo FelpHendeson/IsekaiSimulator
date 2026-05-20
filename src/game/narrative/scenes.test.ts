@@ -5,7 +5,10 @@ import { createInitialGameState } from "../core/initial-state";
 
 describe("scene choices", () => {
   it("moves to the next scene and advances time", () => {
-    const state = createInitialGameState();
+    const state = {
+      ...createInitialGameState(),
+      currentSceneId: "reincarnation_intro",
+    };
     const nextState = applyGameAction(
       state,
       { type: "CHOOSE_SCENE_OPTION", optionId: "inspect_status" },
@@ -46,4 +49,3 @@ describe("scene choices", () => {
     });
   });
 });
-

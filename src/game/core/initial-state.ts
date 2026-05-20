@@ -6,7 +6,7 @@ export function createInitialGameState(): GameState {
   return {
     saveId: "local-demo-save",
     currentLocationId: "first_village",
-    currentSceneId: "reincarnation_intro",
+    currentSceneId: undefined,
     clock: createClock(1, 7, 30),
     player: {
       name: "Reencarnado",

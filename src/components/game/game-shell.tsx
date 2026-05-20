@@ -13,10 +13,10 @@ import {
   ListTodo,
   Moon,
   Navigation,
-  Swords,
   Save,
   ShieldAlert,
   Sparkles,
+  Swords,
   UserPlus,
   Zap,
 } from "lucide-react";
@@ -200,36 +200,7 @@ export function GameShell() {
             onSave={saveGame}
           />
 
-          <NarrativePanel
-            gameState={gameState}
-            message={message}
-            scene={currentScene}
-            onChoose={(choice) =>
-              runAction(
-                { type: "CHOOSE_SCENE_OPTION", optionId: choice.id },
-                `Escolha registrada: ${choice.label}`,
-              )
-            }
-          />
-
-          <CombatPanel
-            danger={effectiveDanger}
-            enemyName={currentEnemy?.name}
-            enemyMaxHp={currentEnemy?.maxHp}
-            gameState={gameState}
-            onCombatAction={(action) =>
-              runAction(
-                { type: "PLAYER_COMBAT_ACTION", action },
-                action === "flee" ? "Voce recua do combate." : "Turno de combate resolvido.",
-              )
-            }
-            onStart={() =>
-              runAction(
-                { type: "START_COMBAT", enemyId: "shadow_wolf" },
-                "Um Lobo Sombrio surge da estrada.",
-              )
-            }
-          />
+          <ActivityPanel gameState={gameState} message={message} />
 
           <TrainingPanel
             activeTraining={activeTraining}
@@ -330,7 +301,76 @@ export function GameShell() {
           />
         </aside>
       </section>
+
+      {gameState.combat ? (
+        <CombatModal
+          enemyName={currentEnemy?.name}
+          enemyMaxHp={currentEnemy?.maxHp}
+          gameState={gameState}
+          onCombatAction={(action) =>
+            runAction(
+              { type: "PLAYER_COMBAT_ACTION", action },
+              action === "flee" ? "Voce recua do combate." : "Turno de combate resolvido.",
+            )
+          }
+        />
+      ) : null}
+
+      {!gameState.combat && currentScene ? (
+        <DecisionModal
+          gameState={gameState}
+          message={message}
+          scene={currentScene}
+          onChoose={(choice) =>
+            runAction(
+              { type: "CHOOSE_SCENE_OPTION", optionId: choice.id },
+              `Escolha registrada: ${choice.label}`,
+            )
+          }
+        />
+      ) : null}
     </main>
+  );
+}
+
+function ActivityPanel({
+  gameState,
+  message,
+}: {
+  gameState: GameState;
+  message: string;
+}) {
+  return (
+    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
+      <p className="text-sm font-semibold uppercase tracking-wide text-ember">Jornada</p>
+      <h2 className="mt-3 text-2xl font-bold text-ink">Acoes em andamento</h2>
+      <p className="mt-4 rounded bg-night px-4 py-3 text-sm leading-6 text-parchment">
+        {message}
+      </p>
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="rounded bg-ink/5 p-4">
+          <p className="text-sm text-ink/55">Missoes ativas</p>
+          <p className="mt-1 text-2xl font-bold text-ink">
+            {gameState.quests.filter((quest) => quest.status === "active").length}
+          </p>
+        </div>
+        <div className="rounded bg-ink/5 p-4">
+          <p className="text-sm text-ink/55">Itens</p>
+          <p className="mt-1 text-2xl font-bold text-ink">{gameState.inventory.itemIds.length}</p>
+        </div>
+        <div className="rounded bg-ink/5 p-4">
+          <p className="text-sm text-ink/55">Eventos</p>
+          <p className="mt-1 text-2xl font-bold text-ink">{gameState.eventLog.length}</p>
+        </div>
+      </div>
+      <div className="mt-5 space-y-2">
+        {gameState.eventLog.slice(0, 4).map((entry) => (
+          <p className="rounded bg-ink/5 px-3 py-2 text-sm text-ink/70" key={entry.id}>
+            {entry.message}
+          </p>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -470,34 +510,37 @@ function MapPanel({
   );
 }
 
-function CombatPanel({
-  danger,
+function CombatModal({
   enemyMaxHp,
   enemyName,
   gameState,
   onCombatAction,
-  onStart,
 }: {
-  danger: number;
   enemyMaxHp?: number;
   enemyName?: string;
   gameState: GameState;
   onCombatAction: (action: "attack" | "defend" | "flee") => void;
-  onStart: () => void;
 }) {
   const combat = gameState.combat;
 
-  return (
-    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-ink">Combate</h2>
-          <p className="mt-1 text-sm text-ink/65">Turnos simples para validar risco e recompensa.</p>
-        </div>
-        <Swords className="text-ember" size={24} />
-      </div>
+  if (!combat) {
+    return null;
+  }
 
-      {combat ? (
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 px-4 py-6">
+      <section className="w-full max-w-2xl rounded border border-ink/20 bg-parchment p-5 shadow-xl">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-ember">Encontro</p>
+            <h2 className="mt-2 text-2xl font-bold text-ink">Combate disparado</h2>
+            <p className="mt-1 text-sm text-ink/65">
+              Area perigosa, expedicao, dungeon ou passagem de tempo podem iniciar confrontos.
+            </p>
+          </div>
+          <Swords className="text-ember" size={28} />
+        </div>
+
         <div className="mt-5">
           <div className="rounded border border-ember/25 bg-ember/10 p-4">
             <p className="font-semibold text-ink">{enemyName ?? combat.enemyId}</p>
@@ -541,22 +584,8 @@ function CombatPanel({
             ))}
           </div>
         </div>
-      ) : (
-        <div className="mt-5 rounded bg-ink/5 p-4">
-          <p className="text-sm leading-6 text-ink/70">
-            Nenhum combate em andamento. O perigo local atual e {danger}; areas mais perigosas
-            devem gerar inimigos mais fortes nas proximas etapas.
-          </p>
-          <button
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded bg-ink px-4 py-3 text-sm font-semibold text-parchment transition hover:bg-night"
-            onClick={onStart}
-          >
-            <Swords size={16} />
-            Procurar confronto
-          </button>
-        </div>
-      )}
-    </section>
+      </section>
+    </div>
   );
 }
 
@@ -734,7 +763,7 @@ function AuthPanel({
   );
 }
 
-function NarrativePanel({
+function DecisionModal({
   gameState,
   message,
   onChoose,
@@ -746,43 +775,45 @@ function NarrativePanel({
   scene?: SceneDefinition;
 }) {
   return (
-    <section className="rounded border border-ink/15 bg-white/70 p-5 shadow-sm">
-      <p className="text-sm font-semibold uppercase tracking-wide text-ember">Cena atual</p>
-      <h2 className="mt-3 text-2xl font-bold text-ink">{scene?.title ?? "Sem cena ativa"}</h2>
-      <p className="mt-4 text-lg leading-8 text-ink/80">
-        {scene?.text ?? "O estado atual nao aponta para uma cena valida."}
-      </p>
-      <div className="mt-5 rounded bg-night px-4 py-3 text-sm leading-6 text-parchment">
-        {message}
-      </div>
-
-      {scene ? (
-        <div className="mt-5 grid gap-3">
-          {scene.choices.map((choice) => {
-            const available = isChoiceAvailable(gameState, choice);
-
-            return (
-              <button
-                className={clsx(
-                  "rounded border p-4 text-left transition",
-                  available
-                    ? "border-ink/15 bg-parchment/85 hover:border-ember/60 hover:bg-parchment"
-                    : "cursor-not-allowed border-ink/10 bg-ink/5 text-ink/40",
-                )}
-                disabled={!available}
-                key={choice.id}
-                onClick={() => onChoose(choice)}
-              >
-                <span className="block font-semibold">{choice.label}</span>
-                <span className="mt-1 block text-sm text-ink/60">
-                  {choice.timeCostMinutes ? `${choice.timeCostMinutes} min no mundo` : "Sem custo de tempo"}
-                </span>
-              </button>
-            );
-          })}
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/45 px-4 py-6">
+      <section className="w-full max-w-3xl rounded border border-ink/20 bg-parchment p-5 shadow-xl">
+        <p className="text-sm font-semibold uppercase tracking-wide text-ember">Decisao</p>
+        <h2 className="mt-3 text-2xl font-bold text-ink">{scene?.title ?? "Sem cena ativa"}</h2>
+        <p className="mt-4 text-lg leading-8 text-ink/80">
+          {scene?.text ?? "O estado atual nao aponta para uma cena valida."}
+        </p>
+        <div className="mt-5 rounded bg-night px-4 py-3 text-sm leading-6 text-parchment">
+          {message}
         </div>
-      ) : null}
-    </section>
+
+        {scene ? (
+          <div className="mt-5 grid gap-3">
+            {scene.choices.map((choice) => {
+              const available = isChoiceAvailable(gameState, choice);
+
+              return (
+                <button
+                  className={clsx(
+                    "rounded border p-4 text-left transition",
+                    available
+                      ? "border-ink/15 bg-white/70 hover:border-ember/60 hover:bg-white"
+                      : "cursor-not-allowed border-ink/10 bg-ink/5 text-ink/40",
+                  )}
+                  disabled={!available}
+                  key={choice.id}
+                  onClick={() => onChoose(choice)}
+                >
+                  <span className="block font-semibold">{choice.label}</span>
+                  <span className="mt-1 block text-sm text-ink/60">
+                    {choice.timeCostMinutes ? `${choice.timeCostMinutes} min no mundo` : "Sem custo de tempo"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </section>
+    </div>
   );
 }
 

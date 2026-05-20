@@ -6,6 +6,7 @@ import { chooseSceneOption } from "../narrative/scenes";
 import { acceptQuest } from "../quests/quests";
 import { advanceClock } from "../time/clock";
 import { claimTraining, startTraining } from "../training/training";
+import { resolveDangerousAreaEncounter } from "../world/encounters";
 import { navigateLocation } from "../world/navigation";
 import type { GameAction, GameState, SceneDefinition, TrainingDefinition } from "../types";
 
@@ -27,10 +28,12 @@ export function applyGameAction(
   const scenes = context.sceneDefinitions ?? sceneDefinitions;
 
   if (action.type === "CHOOSE_SCENE_OPTION") {
-    return chooseSceneOption(state, action.optionId, {
+    const nextState = chooseSceneOption(state, action.optionId, {
       now,
       definitions: scenes,
     });
+
+    return resolveDangerousAreaEncounter(nextState);
   }
 
   if (action.type === "NAVIGATE_LOCATION") {
@@ -59,15 +62,17 @@ export function applyGameAction(
   }
 
   if (action.type === "CLAIM_TRAINING") {
-    return claimTraining(state, action.trainingSessionId, {
+    const nextState = claimTraining(state, action.trainingSessionId, {
       now,
       definitions,
       createSessionId: context.createSessionId,
       devMode: context.devMode,
     });
+
+    return resolveDangerousAreaEncounter(nextState);
   }
 
-  return {
+  const nextState = {
     ...state,
     clock: advanceClock(state.clock, action.hours * 60),
     player: {
@@ -75,4 +80,6 @@ export function applyGameAction(
       energy: sleepEnergy(state.player.energy, action.hours),
     },
   };
+
+  return resolveDangerousAreaEncounter(nextState);
 }
